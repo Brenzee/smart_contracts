@@ -1,0 +1,8 @@
+const constants = {
+  WHALE: "0x28c6c06298d514db089934071355e5743bf21d60",
+  USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  DAI: "0x6b175474e89094c44da98b954eedeac495271d0f",
+  USDC_DAI_POOL: "0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168",
+};
+
+export default constants;
