@@ -24,7 +24,7 @@ const amount = "1000";
 const amountWithDecimals = amount + "0".repeat(6);
 const minReturnAmount = "998" + "0".repeat(18);
 
-describe("Swap", function () {
+describe("Swap Contract", function () {
   describe("Deployment", function () {
     it("Should set the right unlockTime", async function () {
       const [deployer] = await ethers.getSigners();
@@ -38,7 +38,7 @@ describe("Swap", function () {
     });
   });
 
-  describe("Swap", function () {
+  describe("Swapping", function () {
     it("Should make a USDC/DAI Swap", async () => {
       const { deployer, swapContract } = testArgs;
 
@@ -185,6 +185,22 @@ describe("Swap", function () {
       console.log("DAI Balance After Swap:  ", DAI_Balance);
 
       expect(Number(DAI_Balance)).to.be.gt(Number(DAI_Balance_Before) + Number(minReturnAmount) / 1e18);
+    });
+    it("Should make a multiswap", async () => {
+      // 2  - Version of swap (V2 or V3 for now). 0 - V2, 1 - V3
+      // 2  - Which platform to use. 0 - Uniswap, 1 - Sushiswap
+      // 18 - Empty bytes
+      // 2  - zeroForOne
+      // 40 - Address
+      const version = "01";
+      const platform = "00";
+      const emptyBytes = "00000000000000";
+      const wethUnwrap = "00";
+      const zeroForOne = "00";
+      const poolAddress = constants.USDC_DAI_POOL.slice(2);
+
+      const poolData = "0x" + version + platform + emptyBytes + wethUnwrap + zeroForOne + poolAddress;
+      const poolData2 = "0x" + version + platform + emptyBytes + wethUnwrap + "01" + poolAddress;
     });
   });
 });

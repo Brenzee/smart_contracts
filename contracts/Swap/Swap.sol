@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
 import "hardhat/console.sol";
@@ -9,11 +9,15 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../Interfaces/IUniswapV3Pool.sol";
 import "../Interfaces/IWETH.sol";
+import "./Swap_Constants.sol";
 
-/** @dev we used a parameter called callId to hold the following info: */
-// 1-159     160bit poolAddress
-uint256 constant ZERO_FOR_ONE_MASK = 0x01 << 160; // 160-162     8bit zeroToOne
-uint256 constant WETH_UNWRAP_MASK = 0x01 << 162; // 162-164     8bit wethUnwrap
+/** @dev uint256 pool structure */
+/*                                                   1-159     160bit poolAddress */
+uint256 constant ZERO_FOR_ONE_MASK = 0x01 << 160; // 160-168   8bit zeroForOne
+uint256 constant WETH_UNWRAP_MASK = 0x01 << 168; //  168-176   8bit wethUnwrap
+//                                                   168-240   72bit emptyBytes
+uint256 constant SWAP_PLATFORM = 240; //             240-248   8bit swapPlatform
+uint256 constant VERSION_OF_SWAP = 248; //           248-256   8bit versionOfSwap
 
 struct IERC20PermitSignature {
     address token;
@@ -21,6 +25,11 @@ struct IERC20PermitSignature {
     bytes32 r;
     bytes32 s;
     uint256 deadline;
+}
+
+struct MultiSwap {
+    uint256 minReturn;
+    uint256 pool;
 }
 
 contract Swap {
@@ -122,6 +131,34 @@ contract Swap {
         }
     }
 
+    function multiSwap(
+        address recipient,
+        uint256 amount,
+        MultiSwap[] calldata swaps
+    ) public payable returns (uint256 returnAmount) {
+        uint256 len = swaps.length;
+        uint256 lastIndex = len - 1;
+        require(len > 0, "Swaps are empty");
+
+        if (len > 1) {
+            // First swap is from msg.sender
+            returnAmount = _swapOfMultiswap(address(this), msg.sender, swaps[0], amount);
+
+            // All the swaps except the are from this contract
+            for (uint256 i = 1; i < len; i++) {
+                returnAmount = _swapOfMultiswap(address(this), address(this), swaps[i], returnAmount);
+            }
+
+            // Last swap - send to msg.sender
+            returnAmount = _swapV3(recipient, address(this), lastIndex, returnAmount);
+        } else {
+            // Only one swap
+            returnAmount = _swapOfMultiswap(recipient, msg.sender, swaps[0], amount);
+        }
+
+        require(returnAmount >= swaps[lastIndex].minReturn, "Return amount is less than minReturn");
+    }
+
     function _swapV3(address recipient, address sender, uint256 pool, uint256 amount) private returns (uint256) {
         address poolAddress = address(uint160(pool));
         bool zeroForOne = pool & ZERO_FOR_ONE_MASK != 0;
@@ -145,6 +182,31 @@ contract Swap {
             );
 
             return SafeCast.toUint256(-amount0);
+        }
+    }
+
+    function _swapOfMultiswap(
+        address recipient,
+        address sender,
+        MultiSwap calldata swap,
+        uint256 amount
+    ) private returns (uint256) {
+        uint8 swapPlatform = uint8(swap.pool >> SWAP_PLATFORM);
+        uint8 versionOfSwap = uint8(swap.pool >> VERSION_OF_SWAP);
+
+        // Swap on Uniswap V3
+        if (swapPlatform == UNISWAP_PLATFORM && versionOfSwap == VERSION_3) {
+            uint256 returnValue = _swapV3(recipient, sender, swap.pool, amount);
+            require(returnValue >= swap.minReturn, "Return amount is less than minReturn");
+            return returnValue;
+        } else if (
+            // Swap on Uniswap V2 or V2 forks
+            swapPlatform == SUSHISWAP_PLATFORM || (swapPlatform == UNISWAP_PLATFORM && versionOfSwap == VERSION_2)
+        ) {
+            // TODO: Implement V2 Swap
+            return 0;
+        } else {
+            revert("Swap platform is not supported");
         }
     }
 
