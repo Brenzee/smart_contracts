@@ -26,7 +26,7 @@ async function main() {
     token: constants.USDC,
   });
 
-  const swapTx = await swap.swapOnUniswapV3(PoolData, "1000");
+  const swapTx = await swap.swapUniswapV3(deployer.address, "1000", "990", [PoolData]);
 
   await swapTx.wait();
 }
