@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "deploy:swap": "hardhat run scripts/Swap/deploy.ts",
-    "test": "hardhat test test/*.test.ts --network hardhat"
+    "test": "hardhat test test/*/*.test.ts --network hardhat",
+    "test:erc20staking": "hardhat test test/ERC20Staking/ERC20Staking.test.ts --network hardhat"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +26,7 @@
     "prettier-plugin-solidity": "^1.1.0"
   },
   "dependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.7",
     "@openzeppelin/contracts": "^4.8.0"
   }
 }
