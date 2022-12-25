@@ -4,6 +4,10 @@ pragma solidity ^0.8;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
+/**
+ * @author Brendons Karelis
+ * @notice ERC20 Staking Rewards
+ */
 contract StakingRewards {
     IERC20 public immutable stakingToken;
     IERC20 public immutable rewardsToken;

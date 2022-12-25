@@ -32,6 +32,10 @@ struct MultiSwap {
     uint256 pool;
 }
 
+/**
+ * @author Brendons Karelis
+ * @notice Swap contract
+ */
 contract Swap {
     using Address for address payable;
     using SafeERC20 for IERC20;
