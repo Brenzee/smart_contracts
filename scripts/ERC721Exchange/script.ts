@@ -1,4 +1,5 @@
-import { signTypedData, SignTypedDataVersion, TypedMessage } from "@metamask/eth-sig-util";
+import { signTypedData, SignTypedDataVersion, TypedDataUtils, TypedMessage } from "@metamask/eth-sig-util";
+import { hexlify } from "ethers/lib/utils";
 import { ethers, config } from "hardhat";
 import { HardhatNetworkHDAccountsConfig } from "hardhat/types";
 
@@ -68,6 +69,11 @@ async function main() {
     message: message,
   } as unknown as TypedMessage<typeof types>;
 
+  // Encode message
+  const eip712Hash = hexlify(TypedDataUtils.eip712Hash(data, SignTypedDataVersion.V4));
+
+  console.log(eip712Hash);
+
   const signature = signTypedData<SignTypedDataVersion.V4, typeof data["types"]>({
     data,
     version: SignTypedDataVersion.V4,
@@ -94,7 +100,7 @@ async function main() {
   const ethBalanceOfFeeRecipient = await ethers.provider.getBalance(user2.address);
   console.log("Fee Recipient ETH balance:      ", ethBalanceOfFeeRecipient.toString(), "\n");
 
-  await erc721Exchange.connect(user1).buy(message, r, s, v, { value: message.price });
+  await erc721Exchange.connect(user1).buyToken(message, r, s, v, { value: message.price });
 
   // Get owner of nft tokenID 1
   const newOwner = await erc721.ownerOf(1);
@@ -113,3 +119,11 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
+// 0x
+// d955778e97db811b1ec2eed225b6b82478a93909d50ee72083a52eff31d79f81
+// 000000000000000000000000c3023a2c9f7b92d1dd19f488af6ee107a78df9db
+// 0000000000000000000000000000000000000000000000000000000000000001
+// 0000000000000000000000000000000000000000000000000000000000000000
+// 000000000000000000000000000000000000000000000000016345785d8a0000
+// 0000000000000000000000000000000000000000000000000000000063ab38be
