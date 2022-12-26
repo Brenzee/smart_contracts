@@ -1,4 +1,4 @@
-import { signTypedData, SignTypedDataVersion } from "@metamask/eth-sig-util";
+import { signTypedData, SignTypedDataVersion, TypedMessage } from "@metamask/eth-sig-util";
 import { ethers, config } from "hardhat";
 import { HardhatNetworkHDAccountsConfig } from "hardhat/types";
 
@@ -10,10 +10,10 @@ function getDate(days = 0) {
 
 async function main() {
   // Get signer
-  const [deployer, user1] = await ethers.getSigners();
+  const [deployer, user1, user2] = await ethers.getSigners();
 
   const ERC721Exchange = await ethers.getContractFactory("ERC721Exchange");
-  const erc721Exchange = await ERC721Exchange.deploy();
+  const erc721Exchange = await ERC721Exchange.deploy(user2.address);
 
   await erc721Exchange.deployed();
 
@@ -25,34 +25,38 @@ async function main() {
   await erc721.mint(deployer.address);
   await erc721.approve(erc721Exchange.address, 1);
 
-  const message = {
-    token: erc721.address,
-    tokenId: 1,
-    price: ethers.utils.parseEther("0.1").toString(),
-    expiresAt: getDate(1),
-  };
-
   const accounts = config.networks.hardhat.accounts as HardhatNetworkHDAccountsConfig;
   const wallet1 = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/0`);
 
   const deployerPrivateKey = wallet1.privateKey;
 
+  const types = {
+    EIP712Domain: [
+      { name: "name", type: "string" },
+      { name: "version", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" },
+      { name: "salt", type: "bytes32" },
+    ],
+    Sale: [
+      { name: "token", type: "address" },
+      { name: "tokenId", type: "uint256" },
+      { name: "currency", type: "address" },
+      { name: "price", type: "uint256" },
+      { name: "expiresAt", type: "uint256" },
+    ],
+  };
+
+  const message = {
+    token: erc721.address,
+    tokenId: 1,
+    price: ethers.utils.parseEther("0.1").toString(),
+    currency: ethers.constants.AddressZero,
+    expiresAt: getDate(1),
+  };
+
   const data = {
-    types: {
-      EIP712Domain: [
-        { name: "name", type: "string" },
-        { name: "version", type: "string" },
-        { name: "chainId", type: "uint256" },
-        { name: "verifyingContract", type: "address" },
-        { name: "salt", type: "bytes32" },
-      ],
-      Sale: [
-        { name: "token", type: "address" },
-        { name: "tokenId", type: "uint256" },
-        { name: "price", type: "uint256" },
-        { name: "expiresAt", type: "uint256" },
-      ],
-    },
+    types: types,
     primaryType: "Sale",
     domain: {
       name: await erc721Exchange.NAME(),
@@ -62,10 +66,9 @@ async function main() {
       salt: await erc721Exchange.SALT(),
     },
     message: message,
-  };
+  } as unknown as TypedMessage<typeof types>;
 
   const signature = signTypedData<SignTypedDataVersion.V4, typeof data["types"]>({
-    // @ts-ignore
     data,
     version: SignTypedDataVersion.V4,
     privateKey: Buffer.from(deployerPrivateKey.slice(2), "hex"),
@@ -88,8 +91,8 @@ async function main() {
   console.log("Deployer ETH balance:           ", ethBalanceOfDeployer.toString());
   const ethBalanceOfUser1 = await user1.getBalance();
   console.log("User1 ETH balance:              ", ethBalanceOfUser1.toString());
-  const ethBalanceOfContract = await ethers.provider.getBalance(erc721Exchange.address);
-  console.log("Contract ETH balance:           ", ethBalanceOfContract.toString(), "\n");
+  const ethBalanceOfFeeRecipient = await ethers.provider.getBalance(user2.address);
+  console.log("Fee Recipient ETH balance:      ", ethBalanceOfFeeRecipient.toString(), "\n");
 
   await erc721Exchange.connect(user1).buy(message, r, s, v, { value: message.price });
 
@@ -100,8 +103,8 @@ async function main() {
   console.log("Deployer ETH balance:           ", newEthBalanceOfDeployer.toString());
   const newEthBalanceOfUser1 = await user1.getBalance();
   console.log("User1 ETH balance:              ", newEthBalanceOfUser1.toString());
-  const newEthBalanceOfContract = await ethers.provider.getBalance(erc721Exchange.address);
-  console.log("Contract ETH balance:           ", newEthBalanceOfContract.toString());
+  const newEthBalanceOfFeeRecipient = await ethers.provider.getBalance(user2.address);
+  console.log("Fee Recipient ETH balance:      ", newEthBalanceOfFeeRecipient.toString());
 }
 
 // We recommend this pattern to be able to use async/await everywhere
